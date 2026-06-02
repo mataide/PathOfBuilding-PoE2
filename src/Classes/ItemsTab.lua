@@ -193,18 +193,18 @@ local ItemsTabClass = newClass("ItemsTab", "UndoHandler", "ControlHost", "Contro
 		self.slotOrder[slot.slotName] = #self.orderedSlots
 		t_insert(self.controls, slot)
 		if not slot.slotName:match("Jewel Socket") and not slot.nodeId then
-			local notesBtn = new("ButtonControl", {"LEFT", slot, "RIGHT"}, {2, 0, 26, 20}, "pencil", function()
+			local notesBtn = new("ButtonControl", {"LEFT", slot, "RIGHT"}, {2, 0, 20, 20}, "pencil", function()
 				self:OpenItemNotesPopup(slot)
 			end)
-			notesBtn.enabled = function() return slot.selItemId ~= 0 end
+			notesBtn.enabled = true
 			notesBtn.shown = function() return slot:IsShown() end
 			notesBtn.tooltipFunc = function(tooltip)
 				tooltip:Clear()
-				local item = self.items[slot.selItemId]
-				if item and item.note and item.note:match("%S") then
-					tooltip:AddLine(14, "^7Item notes (click to edit)")
+				local slotData = self.activeItemSet and self.activeItemSet[slot.slotName]
+				if slotData and slotData.notes and slotData.notes:match("%S") then
+					tooltip:AddLine(14, "^7Slot notes (click to edit)")
 				else
-					tooltip:AddLine(14, "^7Add notes for this item")
+					tooltip:AddLine(14, "^7Add notes for this slot")
 				end
 			end
 			t_insert(self.controls, notesBtn)
@@ -1155,6 +1155,7 @@ function ItemsTabClass:Load(xml, dbFileName)
 						itemSet[slotName].selItemId = tonumber(child.attrib.itemId)
 						itemSet[slotName].active = child.attrib.active == "true"
 						itemSet[slotName].pbURL = child.attrib.itemPbURL or ""
+						itemSet[slotName].notes = child.attrib.notes or ""
 					end
 				elseif child.elem == "SocketIdURL" then
 					local id = tonumber(child.attrib.nodeId)
@@ -1240,7 +1241,7 @@ function ItemsTabClass:Save(xml)
 		for slotName, slot in pairs(self.slots) do
 			if not slot.parentSlot or itemSet[slotName].selItemId ~= 0 then
 				if not slot.nodeId then
-					t_insert(child, { elem = "Slot", attrib = { name = slotName, itemId = tostring(itemSet[slotName].selItemId), itemPbURL = itemSet[slotName].pbURL or "", active = itemSet[slotName].active and "true" }})
+					t_insert(child, { elem = "Slot", attrib = { name = slotName, itemId = tostring(itemSet[slotName].selItemId), itemPbURL = itemSet[slotName].pbURL or "", active = itemSet[slotName].active and "true", notes = itemSet[slotName].notes or "" }})
 				else
 					if self.build.spec.allocNodes[slot.nodeId] then
 						t_insert(child, { elem = "SocketIdURL", attrib = { name = slotName, nodeId = tostring(slot.nodeId), itemPbURL = itemSet[slot.nodeId] and itemSet[slot.nodeId].pbURL or ""}})
@@ -1418,7 +1419,7 @@ function ItemsTabClass:CreateItemSet(itemSetId, name)
 	end
 	for slotName, slot in pairs(self.slots) do
 		if not slot.nodeId then
-			itemSet[slotName] = { selItemId = 0 }
+			itemSet[slotName] = { selItemId = 0, notes = "" }
 		end
 	end
 	self.itemSets[itemSet.id] = itemSet
@@ -2305,23 +2306,21 @@ function ItemsTabClass:OpenItemSetManagePopup()
 	main:OpenPopup(630, 290, "Manage Item Sets", controls)
 end
 
--- Opens the item notes editor popup
+-- Opens the slot notes editor popup
 function ItemsTabClass:OpenItemNotesPopup(slot)
-	local item = self.items[slot.selItemId]
-	if not item then return end
+	local slotData = self.activeItemSet[slot.slotName]
 	local controls = { }
-	controls.label = new("LabelControl", nil, {0, 20, 0, 16}, "^7Notes for: " .. item.name)
-	controls.edit = new("EditControl", nil, {0, 60, 300, 80}, item.note or "", nil, nil, nil, nil, 14)
+	controls.label = new("LabelControl", nil, {0, 20, 0, 16}, "^7Notes for: " .. slot.label)
+	controls.edit = new("EditControl", nil, {0, 60, 300, 80}, slotData.notes or "", nil, nil, nil, nil, 14)
 	controls.save = new("ButtonControl", nil, {-55, 150, 90, 20}, "Save", function()
-		local text = controls.edit.buf
-		item.note = text ~= "" and text or nil
+		slotData.notes = controls.edit.buf
 		self.modFlag = true
 		main:ClosePopup()
 	end)
 	controls.cancel = new("ButtonControl", nil, {55, 150, 90, 20}, "Cancel", function()
 		main:ClosePopup()
 	end)
-	main:OpenPopup(340, 180, "Item Notes", controls, "save", "edit", "cancel")
+	main:OpenPopup(340, 180, "Slot Notes", controls, "save", "edit", "cancel")
 end
 
 -- Opens the item crafting popup
