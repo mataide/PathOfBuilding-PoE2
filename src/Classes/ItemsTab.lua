@@ -340,7 +340,7 @@ local ItemsTabClass = newClass("ItemsTab", "UndoHandler", "ControlHost", "Contro
 	if main.portraitMode then
 		self.controls.itemList = new("ItemListControl", {"TOPRIGHT",self.lastSlot,"BOTTOMRIGHT"}, {0, 68, 360, 308}, self, main.sharedItemList, true)
 	else
-		self.controls.itemList = new("ItemListControl", {"TOPLEFT",self.controls.setManage,"TOPRIGHT"}, {20, 88, 360, 308}, self, main.sharedItemList, true)
+		self.controls.itemList = new("ItemListControl", {"TOPLEFT",self.controls.setManage,"TOPRIGHT"}, {32, 88, 360, 308}, self, main.sharedItemList, true)
 	end
 	self.controls.itemList.shown = function()
 		return self.displayItem == nil
@@ -1155,7 +1155,6 @@ function ItemsTabClass:Load(xml, dbFileName)
 						itemSet[slotName].selItemId = tonumber(child.attrib.itemId)
 						itemSet[slotName].active = child.attrib.active == "true"
 						itemSet[slotName].pbURL = child.attrib.itemPbURL or ""
-						itemSet[slotName].notes = child.attrib.notes or ""
 					end
 				elseif child.elem == "SocketIdURL" then
 					local id = tonumber(child.attrib.nodeId)
@@ -1392,7 +1391,7 @@ function ItemsTabClass:Draw(viewPort, inputEvents)
 	if main.portraitMode then
 		self.controls.itemList:SetAnchor("TOPRIGHT", self.lastSlot, "BOTTOMRIGHT", 0, 108)
 	else
-		self.controls.itemList:SetAnchor("TOPLEFT", self.controls.setManage, "TOPRIGHT", 20, 88)
+		self.controls.itemList:SetAnchor("TOPLEFT", self.controls.setManage, "TOPRIGHT", 32, 88)
 	end
 	self.controls.craftDisplayItem:SetAnchor("TOPLEFT", self.controls.setManage, "TOPRIGHT", 20, 0)
 	self.anchorDisplayItem:SetAnchor("TOPLEFT", self.controls.setManage, "TOPRIGHT", 20, 0)
