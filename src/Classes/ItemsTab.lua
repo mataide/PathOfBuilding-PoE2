@@ -137,6 +137,28 @@ local ItemsTabClass = newClass("ItemsTab", "UndoHandler", "ControlHost", "Contro
 	self.ControlHost()
 	self.Control()
 
+	-- Responsive layout: zone-width helpers (closures over self; evaluated at draw time)
+	-- self.width is set to viewPort.width each frame in Draw(), so functions always see live value.
+	self.SCROLL_BAR_THICKNESS = 18
+	local function getEquipZoneW()
+		-- 310px at design viewport width (~1200px), clamped [240, 420]
+		local raw = (self.width - 96) * (310 / 1082)
+		return m_max(240, m_min(420, m_floor(raw)))
+	end
+	local function getItemListW()
+		-- 360px at design viewport width, clamped [280, 480]
+		local raw = (self.width - 96) * (360 / 1082)
+		return m_max(280, m_min(480, m_floor(raw)))
+	end
+	local function getDisplayZoneW()
+		-- fills space after equip zone (32px gap) + item list (20px gap), clamped [320, 600]
+		local raw = (self.width - 96) - getEquipZoneW() - 32 - getItemListW() - 20
+		return m_max(320, m_min(600, m_floor(raw)))
+	end
+	self.getEquipZoneW = getEquipZoneW
+	self.getItemListW = getItemListW
+	self.getDisplayZoneW = getDisplayZoneW
+
 	self.build = build
 	
 	self.socketViewer = new("PassiveTreeView")
@@ -150,7 +172,7 @@ local ItemsTabClass = newClass("ItemsTab", "UndoHandler", "ControlHost", "Contro
 	self.tradeQuery = new("TradeQuery", self)
 
 	-- Set selector
-	self.controls.setSelect = new("DropDownControl", {"TOPLEFT",self,"TOPLEFT"}, {96, 8, 216, 20}, nil, function(index, value)
+	self.controls.setSelect = new("DropDownControl", {"TOPLEFT",self,"TOPLEFT"}, {96, 8, function() return getEquipZoneW() - 94 end, 20}, nil, function(index, value)
 		self:SetActiveItemSet(self.itemSetOrderList[index])
 		self:AddUndoState()
 	end)
@@ -170,7 +192,7 @@ local ItemsTabClass = newClass("ItemsTab", "UndoHandler", "ControlHost", "Contro
 	end)
 
 	-- Price Items
-	self.controls.priceDisplayItem = new("ButtonControl", {"TOPLEFT",self,"TOPLEFT"}, {96, 32, 310, 20}, "Trade for these items", function()
+	self.controls.priceDisplayItem = new("ButtonControl", {"TOPLEFT",self,"TOPLEFT"}, {96, 32, function() return getEquipZoneW() end, 20}, "Trade for these items", function()
 		self.tradeQuery:PriceItem()
 	end)
 	self.controls.priceDisplayItem.tooltipFunc = function(tooltip)
@@ -184,9 +206,10 @@ local ItemsTabClass = newClass("ItemsTab", "UndoHandler", "ControlHost", "Contro
 	self.orderedSlots = { }
 	self.slotOrder = { }
 	self.initSockets = true
-	self.slotAnchor = new("Control", {"TOPLEFT",self,"TOPLEFT"}, {96, 76, 310, 0})
+	self.slotAnchor = new("Control", {"TOPLEFT",self,"TOPLEFT"}, {96, 76, function() return getEquipZoneW() end, 0})
 	local prevSlot = self.slotAnchor
 	local function addSlot(slot)
+		slot.width = function() return getEquipZoneW() end
 		prevSlot = slot
 		self.slots[slot.slotName] = slot
 		t_insert(self.orderedSlots, slot)
@@ -261,7 +284,7 @@ local ItemsTabClass = newClass("ItemsTab", "UndoHandler", "ControlHost", "Contro
 	end
 
 	-- Passive tree dropdown controls
-	self.controls.specSelect = new("DropDownControl", {"TOPLEFT",prevSlot,"BOTTOMLEFT"}, {0, 8, 216, 20}, nil, function(index, value)
+	self.controls.specSelect = new("DropDownControl", {"TOPLEFT",prevSlot,"BOTTOMLEFT"}, {0, 8, function() return getEquipZoneW() - 94 end, 20}, nil, function(index, value)
 		if self.build.treeTab.specList[index] then
 			self.build.modFlag = true
 			self.build.treeTab:SetActiveSpec(index)
@@ -338,9 +361,9 @@ local ItemsTabClass = newClass("ItemsTab", "UndoHandler", "ControlHost", "Contro
 	-- Controls (Search + Row-B + Row-A = 68 px) are placed ABOVE the list body.
 	-- itemList starts 88 px below setManage (non-portrait) to leave room for them.
 	if main.portraitMode then
-		self.controls.itemList = new("ItemListControl", {"TOPRIGHT",self.lastSlot,"BOTTOMRIGHT"}, {0, 68, 360, 308}, self, main.sharedItemList, true)
+		self.controls.itemList = new("ItemListControl", {"TOPRIGHT",self.lastSlot,"BOTTOMRIGHT"}, {0, 68, function() return getItemListW() end, 308}, self, main.sharedItemList, true)
 	else
-		self.controls.itemList = new("ItemListControl", {"TOPLEFT",self.controls.setManage,"TOPRIGHT"}, {32, 88, 360, 308}, self, main.sharedItemList, true)
+		self.controls.itemList = new("ItemListControl", {"TOPLEFT",self.controls.setManage,"TOPRIGHT"}, {32, 88, function() return getItemListW() end, 308}, self, main.sharedItemList, true)
 	end
 	self.controls.itemList.shown = function()
 		return self.displayItem == nil
@@ -368,7 +391,7 @@ local ItemsTabClass = newClass("ItemsTab", "UndoHandler", "ControlHost", "Contro
 	self.controls.rareButton.shown = function() return self.displayItem == nil end
 
 	-- Unique database (y=16 places "Any slot" at same Y as "Trade for these items"; height fills to "Passive tree:" row)
-	self.controls.uniqueDB = new("ItemDBControl", {"TOPLEFT",self.controls.itemList,"TOPRIGHT"}, {20, 0, 360, function(c)
+	self.controls.uniqueDB = new("ItemDBControl", {"TOPLEFT",self.controls.itemList,"TOPRIGHT"}, {20, 0, function() return getItemListW() end, function(c)
 		if self.controls.selectDBLabel:IsShown() then
 			local _, myY = c:GetPos()
 			local _, specY = self.controls.specSelect:GetPos()
@@ -385,7 +408,7 @@ local ItemsTabClass = newClass("ItemsTab", "UndoHandler", "ControlHost", "Contro
 	end
 
 	-- Rare template database
-	self.controls.rareDB = new("ItemDBControl", {"TOPLEFT",self.controls.itemList,"TOPRIGHT"}, {20, 0, 360, function(c)
+	self.controls.rareDB = new("ItemDBControl", {"TOPLEFT",self.controls.itemList,"TOPRIGHT"}, {20, 0, function() return getItemListW() end, function(c)
 		if self.controls.selectDBLabel:IsShown() then
 			local _, myY = c:GetPos()
 			local _, specY = self.controls.specSelect:GetPos()
@@ -401,24 +424,49 @@ local ItemsTabClass = newClass("ItemsTab", "UndoHandler", "ControlHost", "Contro
 		return self.displayItem == nil and (not self.controls.selectDBLabel:IsShown() or self.selectedDB == "RARE")
 	end	
 
-	-- Create/import item
-	self.controls.craftDisplayItem = new("ButtonControl", {"TOPLEFT",self.controls.setManage,"TOPRIGHT"}, {20, 0, 120, 20}, "Craft item...", function()
+	-- Create/import item section panel
+	self.controls.createItemSection = new("SectionControl", {"TOPLEFT",self.controls.setManage,"TOPRIGHT"}, {20, 0, 264, 36}, "Create Item")
+	self.controls.createItemSection.shown = function()
+		return self.displayItem == nil
+	end
+
+	self.controls.craftDisplayItem = new("ButtonControl", {"TOPLEFT",self.controls.createItemSection,"TOPLEFT"}, {8, 8, 120, 20}, "Craft item...", function()
 		self:CraftItem()
 	end)
 	self.controls.craftDisplayItem.shown = function()
-		return self.displayItem == nil 
+		return self.displayItem == nil
 	end
 	self.controls.newDisplayItem = new("ButtonControl", {"TOPLEFT",self.controls.craftDisplayItem,"TOPRIGHT"}, {8, 0, 120, 20}, "Create custom...", function()
 		self:EditDisplayItemText()
 	end)
 	self.controls.newDisplayItem.tooltipText = "Double-click an item from one of the lists,\nor copy and paste an item from in game\n(hover over the item and Ctrl+C) to view or edit\nthe item and add it to your build. You can \nalso clone an item within Path of Building by \ncopying and pasting it with Ctrl+C and Ctrl+V."
 	self.controls.newDisplayItem.shown = function() return self.displayItem == nil end
-	self.controls.displayItemTip = new("LabelControl", {"TOPLEFT",self.controls.itemList,"BOTTOMLEFT"}, {0, 8, 100, 16},
-[[^7You can Control + Click an item to equip it, or
-drag it onto the slot.  This will also add it to
-your build if it's from the unique/template list.
-If there's 2 slots an item can go in,
-holding Shift will put it in the second.]])
+	self.controls.displayItemTip = new("LabelControl", {"TOPLEFT",self.controls.itemList,"BOTTOMLEFT"}, {0, 8, 0, 16}, "")
+	self.controls.displayItemTip.label = function()
+		local words = {}
+		for w in ("You can Control + Click an item to equip it, or drag it onto the slot. This will also add it to your build if it's from the unique/template list. If there's 2 slots an item can go in, holding Shift will put it in the second."):gmatch("%S+") do
+			t_insert(words, w)
+		end
+		local maxW = getItemListW()
+		local lines = {}
+		local line = ""
+		for _, word in ipairs(words) do
+			local test = line == "" and word or (line .. " " .. word)
+			if DrawStringWidth(16, "VAR", test) <= maxW then
+				line = test
+			else
+				if line ~= "" then
+					t_insert(lines, line)
+				end
+				line = word
+			end
+		end
+		if line ~= "" then
+			t_insert(lines, line)
+		end
+		return "^7" .. table.concat(lines, "\n")
+	end
+	self.controls.displayItemTip.width = function(self) return getItemListW() end
 	self.controls.displayItemTip.shown = function() return self.displayItem == nil end
 	-- Display item
 	self.displayItemTooltip = new("Tooltip")
@@ -453,7 +501,7 @@ holding Shift will put it in the second.]])
 		(self.displayItem.hasAltVariant4 and 24 or 0) + 
 		(self.displayItem.hasAltVariant5 and 24 or 0))
 	end})
-	self.controls.displayItemVariant = new("DropDownControl", {"TOPLEFT", self.controls.displayItemSectionVariant,"TOPLEFT"}, {0, 0, 300, 20}, nil, function(index, value)
+	self.controls.displayItemVariant = new("DropDownControl", {"TOPLEFT", self.controls.displayItemSectionVariant,"TOPLEFT"}, {0, 0, function() return getDisplayZoneW() end, 20}, nil, function(index, value)
 		self.displayItem.variant = index
 		self.displayItem:BuildAndParseRaw()
 		self:UpdateDisplayItemTooltip()
@@ -463,7 +511,7 @@ holding Shift will put it in the second.]])
 	self.controls.displayItemVariant.shown = function()
 		return self.displayItem.variantList and #self.displayItem.variantList > 1
 	end
-	self.controls.displayItemAltVariant = new("DropDownControl", {"TOPLEFT",self.controls.displayItemVariant,"BOTTOMLEFT"}, {0, 4, 300, 20}, nil, function(index, value)
+	self.controls.displayItemAltVariant = new("DropDownControl", {"TOPLEFT",self.controls.displayItemVariant,"BOTTOMLEFT"}, {0, 4, function() return getDisplayZoneW() end, 20}, nil, function(index, value)
 		self.displayItem.variantAlt = index
 		self.displayItem:BuildAndParseRaw()
 		self:UpdateDisplayItemTooltip()
@@ -473,7 +521,7 @@ holding Shift will put it in the second.]])
 	self.controls.displayItemAltVariant.shown = function()
 		return self.displayItem.hasAltVariant
 	end
-	self.controls.displayItemAltVariant2 = new("DropDownControl", {"TOPLEFT",self.controls.displayItemAltVariant,"BOTTOMLEFT"}, {0, 4, 300, 20}, nil, function(index, value)
+	self.controls.displayItemAltVariant2 = new("DropDownControl", {"TOPLEFT",self.controls.displayItemAltVariant,"BOTTOMLEFT"}, {0, 4, function() return getDisplayZoneW() end, 20}, nil, function(index, value)
 		self.displayItem.variantAlt2 = index
 		self.displayItem:BuildAndParseRaw()
 		self:UpdateDisplayItemTooltip()
@@ -483,7 +531,7 @@ holding Shift will put it in the second.]])
 	self.controls.displayItemAltVariant2.shown = function()
 		return self.displayItem.hasAltVariant2
 	end
-	self.controls.displayItemAltVariant3 = new("DropDownControl", {"TOPLEFT",self.controls.displayItemAltVariant2,"BOTTOMLEFT"}, {0, 4, 300, 20}, nil, function(index, value)
+	self.controls.displayItemAltVariant3 = new("DropDownControl", {"TOPLEFT",self.controls.displayItemAltVariant2,"BOTTOMLEFT"}, {0, 4, function() return getDisplayZoneW() end, 20}, nil, function(index, value)
 		self.displayItem.variantAlt3 = index
 		self.displayItem:BuildAndParseRaw()
 		self:UpdateDisplayItemTooltip()
@@ -493,7 +541,7 @@ holding Shift will put it in the second.]])
 	self.controls.displayItemAltVariant3.shown = function()
 		return self.displayItem.hasAltVariant3
 	end
-	self.controls.displayItemAltVariant4 = new("DropDownControl", {"TOPLEFT",self.controls.displayItemAltVariant3,"BOTTOMLEFT"}, {0, 4, 300, 20}, nil, function(index, value)
+	self.controls.displayItemAltVariant4 = new("DropDownControl", {"TOPLEFT",self.controls.displayItemAltVariant3,"BOTTOMLEFT"}, {0, 4, function() return getDisplayZoneW() end, 20}, nil, function(index, value)
 		self.displayItem.variantAlt4 = index
 		self.displayItem:BuildAndParseRaw()
 		self:UpdateDisplayItemTooltip()
@@ -503,7 +551,7 @@ holding Shift will put it in the second.]])
 	self.controls.displayItemAltVariant4.shown = function()
 		return self.displayItem.hasAltVariant4
 	end
-	self.controls.displayItemAltVariant5 = new("DropDownControl", {"TOPLEFT",self.controls.displayItemAltVariant4,"BOTTOMLEFT"}, {0, 4, 300, 20}, nil, function(index, value)
+	self.controls.displayItemAltVariant5 = new("DropDownControl", {"TOPLEFT",self.controls.displayItemAltVariant4,"BOTTOMLEFT"}, {0, 4, function() return getDisplayZoneW() end, 20}, nil, function(index, value)
 		self.displayItem.variantAlt5 = index
 		self.displayItem:BuildAndParseRaw()
 		self:UpdateDisplayItemTooltip()
@@ -609,7 +657,7 @@ holding Shift will put it in the second.]])
 	self.controls.displayItemSectionCatalyst = new("Control", {"TOPLEFT",self.controls.displayItemSectionQuality,"BOTTOMLEFT"}, {0, 0, 0, function()
 		return (self.controls.displayItemCatalyst:IsShown() or self.controls.displayItemCatalystQualityEdit:IsShown()) and 28 or 0
 	end})
-	self.controls.displayItemCatalyst = new("DropDownControl", {"TOPLEFT",self.controls.displayItemSectionCatalyst,"TOPRIGHT"}, {0, 0, 250, 20},
+	self.controls.displayItemCatalyst = new("DropDownControl", {"TOPLEFT",self.controls.displayItemSectionCatalyst,"TOPRIGHT"}, {0, 0, function() return m_min(getDisplayZoneW(), 250) end, 20},
 		{"Catalyst",
 		"Flesh (Life)",
 		"Neural (Mana)",
@@ -667,7 +715,7 @@ holding Shift will put it in the second.]])
 	self.controls.displayItemSectionClusterJewel = new("Control", {"TOPLEFT",self.controls.displayItemSectionCatalyst,"BOTTOMLEFT"}, {0, 0, 0, function()
 		return self.controls.displayItemClusterJewelSkill:IsShown() and 52 or 0
 	end})
-	self.controls.displayItemClusterJewelSkill = new("DropDownControl", {"TOPLEFT",self.controls.displayItemSectionClusterJewel,"TOPLEFT"}, {0, 0, 300, 20}, { }, function(index, value)
+	self.controls.displayItemClusterJewelSkill = new("DropDownControl", {"TOPLEFT",self.controls.displayItemSectionClusterJewel,"TOPLEFT"}, {0, 0, function() return getDisplayZoneW() end, 20}, { }, function(index, value)
 		self.displayItem.clusterJewelSkill = value.skillId
 		self:CraftClusterJewel()
 	end) {
@@ -700,7 +748,7 @@ holding Shift will put it in the second.]])
 	for i = 1, 6 do
 		local prev = self.controls["displayItemRune"..(i-1)] or self.controls.displayItemSectionRune
 		local drop
-		drop = new("DropDownControl", {"TOPLEFT",prev,"TOPLEFT"}, {i==1 and 40 or 0, 0, 418, 20}, nil, function(index, value)
+		drop = new("DropDownControl", {"TOPLEFT",prev,"TOPLEFT"}, {i==1 and 40 or 0, 0, function() return getDisplayZoneW() end, 20}, nil, function(index, value)
 			self.displayItem.runes[i] = value.name
 			self.displayItem:UpdateRunes()
 			self.displayItem:BuildAndParseRaw()
@@ -791,7 +839,7 @@ holding Shift will put it in the second.]])
 			end
 			return range
 		end
-		drop = new("DropDownControl", {"TOPLEFT",prev,"TOPLEFT"}, {i==1 and 40 or 0, 0, 418, 20}, nil, function(index, value)
+		drop = new("DropDownControl", {"TOPLEFT",prev,"TOPLEFT"}, {i==1 and 40 or 0, 0, function() return getDisplayZoneW() end, 20}, nil, function(index, value)
 			local affix = { modId = "None" }
 			if value.modId then
 				affix.modId = value.modId
@@ -936,7 +984,7 @@ holding Shift will put it in the second.]])
 			self:UpdateDisplayItemTooltip()
 		end)
 		slider.width = function()
-			return slider.divCount and 300 or 100
+			return slider.divCount and m_min(getDisplayZoneW(), 300) or 100
 		end
 		slider.tooltipFunc = function(tooltip, val)
 			local modList = drop.list[drop.selIndex].modList
@@ -999,7 +1047,7 @@ holding Shift will put it in the second.]])
 			return 28
 		end
 	end})
-	self.controls.displayItemRangeLine = new("DropDownControl", {"TOPLEFT",self.controls.displayItemSectionRange,"TOPLEFT"}, {0, 0, 350, 18}, nil, function(index, value)
+	self.controls.displayItemRangeLine = new("DropDownControl", {"TOPLEFT",self.controls.displayItemSectionRange,"TOPLEFT"}, {0, 0, function() return getDisplayZoneW() - 108 end, 18}, nil, function(index, value)
 		self.controls.displayItemRangeSlider.val = self.displayItem.rangeLineList[index].range
 	end)
 	self.controls.displayItemRangeLine.shown = function()
@@ -1026,7 +1074,7 @@ holding Shift will put it in the second.]])
 				self:UpdateCustomControls()
 			end
 		end)
-		self.controls["displayItemStackedRangeLine"..i] = new("LabelControl", {"LEFT",self.controls["displayItemStackedRangeSlider"..i],"RIGHT"}, {8, -2, 350, 14}, function()
+		self.controls["displayItemStackedRangeLine"..i] = new("LabelControl", {"LEFT",self.controls["displayItemStackedRangeSlider"..i],"RIGHT"}, {8, -2, function() return getDisplayZoneW() - 108 end, 14}, function()
 			if self.displayItem and self.displayItem.rangeLineList[i] then
 				return "^7" .. self.displayItem.rangeLineList[i].line
 			end
@@ -1047,8 +1095,8 @@ holding Shift will put it in the second.]])
 	self.controls.displayItemTooltipAnchor = new("Control", {"TOPLEFT",self.controls.displayItemSectionRange,"BOTTOMLEFT"})
 
 	-- Scroll bars
-	self.controls.scrollBarH = new("ScrollBarControl", nil, {0, 0, 0, 18}, 100, "HORIZONTAL", true)
-	self.controls.scrollBarV = new("ScrollBarControl", nil, {0, 0, 18, 0}, 100, "VERTICAL", true)
+	self.controls.scrollBarH = new("ScrollBarControl", nil, {0, 0, 0, self.SCROLL_BAR_THICKNESS}, 100, "HORIZONTAL", true)
+	self.controls.scrollBarV = new("ScrollBarControl", nil, {0, 0, self.SCROLL_BAR_THICKNESS, 0}, 100, "VERTICAL", true)
 
 	-- Initialise drag target lists
 	t_insert(self.controls.itemList.dragTargetList, build.controls.mainSkillMinion)
@@ -1278,13 +1326,13 @@ function ItemsTabClass:Draw(viewPort, inputEvents)
 	self.height = viewPort.height
 	self.controls.scrollBarH.width = viewPort.width
 	self.controls.scrollBarH.x = viewPort.x
-	self.controls.scrollBarH.y = viewPort.y + viewPort.height - 18
-	self.controls.scrollBarV.height = viewPort.height - 18
-	self.controls.scrollBarV.x = viewPort.x + viewPort.width - 18
+	self.controls.scrollBarH.y = viewPort.y + viewPort.height - self.SCROLL_BAR_THICKNESS
+	self.controls.scrollBarV.height = viewPort.height - self.SCROLL_BAR_THICKNESS
+	self.controls.scrollBarV.x = viewPort.x + viewPort.width - self.SCROLL_BAR_THICKNESS
 	self.controls.scrollBarV.y = viewPort.y
 	do
 		local maxY = select(2, self.lastSlot:GetPos()) + 24
-		local maxX = self.anchorDisplayItem:GetPos() + 462
+		local maxX = self.anchorDisplayItem:GetPos() + 32 + 2 * self.getItemListW()
 		if self.displayItem then
 			local x, y = self.controls.displayItemTooltipAnchor:GetPos()
 			local ttW, ttH = self.displayItemTooltip:GetDynamicSize(viewPort)
@@ -1393,7 +1441,8 @@ function ItemsTabClass:Draw(viewPort, inputEvents)
 	else
 		self.controls.itemList:SetAnchor("TOPLEFT", self.controls.setManage, "TOPRIGHT", 32, 88)
 	end
-	self.controls.craftDisplayItem:SetAnchor("TOPLEFT", self.controls.setManage, "TOPRIGHT", 20, 0)
+	self.controls.createItemSection:SetAnchor("TOPLEFT", self.controls.setManage, "TOPRIGHT", 20, 0)
+	self.controls.craftDisplayItem:SetAnchor("TOPLEFT", self.controls.createItemSection, "TOPLEFT", 8, 8)
 	self.anchorDisplayItem:SetAnchor("TOPLEFT", self.controls.setManage, "TOPRIGHT", 20, 0)
 
 	self:DrawControls(viewPort)
