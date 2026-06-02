@@ -95,6 +95,21 @@ function ButtonClass:Draw(viewPort, noTooltip)
 				DrawImage(nil, cx, cy, dotW, dotH)
 			end
 		end
+	elseif label == "pencil" then
+		local bx = x + 2
+		local by = y + 2
+		local bw = width - 4
+		local bh = height - 4
+		local hw = bh * 0.13
+		local vw = bw * 0.13
+		local x1 = bx             ; local y1 = by + bh*0.20 + hw
+		local x2 = bx + vw*2     ; local y2 = by + bh*0.20 - hw
+		local x3 = bx + bw*0.75 + vw ; local y3 = by + bh*0.80 - hw
+		local x4 = bx + bw*0.75 - vw ; local y4 = by + bh*0.80 + hw
+		DrawImageQuad(nil, x1, y1, x2, y2, x3, y3, x4, y4)
+		local tx = bx + bw*0.88 ; local ty = by + bh*0.93
+		DrawImageQuad(nil, x4, y4, x3, y3, tx, ty, tx, ty)
+		DrawImage(nil, bx, by + bh*0.12, bw*0.18, bh*0.18)
 	else
 		local overSize = self.overSizeText or 0
 		DrawString(x + width / 2, y + 2 - overSize, "CENTER_X", height - 4 + overSize * 2, "VAR", label)

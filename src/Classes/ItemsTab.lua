@@ -192,6 +192,23 @@ local ItemsTabClass = newClass("ItemsTab", "UndoHandler", "ControlHost", "Contro
 		t_insert(self.orderedSlots, slot)
 		self.slotOrder[slot.slotName] = #self.orderedSlots
 		t_insert(self.controls, slot)
+		if not slot.slotName:match("Jewel Socket") and not slot.nodeId then
+			local notesBtn = new("ButtonControl", {"LEFT", slot, "RIGHT"}, {2, 0, 26, 20}, "pencil", function()
+				self:OpenItemNotesPopup(slot)
+			end)
+			notesBtn.enabled = function() return slot.selItemId ~= 0 end
+			notesBtn.shown = function() return slot:IsShown() end
+			notesBtn.tooltipFunc = function(tooltip)
+				tooltip:Clear()
+				local item = self.items[slot.selItemId]
+				if item and item.note and item.note:match("%S") then
+					tooltip:AddLine(14, "^7Item notes (click to edit)")
+				else
+					tooltip:AddLine(14, "^7Add notes for this item")
+				end
+			end
+			t_insert(self.controls, notesBtn)
+		end
 	end
 	local function addJewelSockets(parentSlot, shownFunc)
 		for i = 1, 6 do
@@ -317,17 +334,22 @@ local ItemsTabClass = newClass("ItemsTab", "UndoHandler", "ControlHost", "Contro
 	end
 	self.controls.weaponSwapLabel = new("LabelControl", {"RIGHT",self.controls.weaponSwap1,"LEFT"}, {-4, 0, 0, 14}, "^7Weapon Set:")
 
-	-- All items list
+	-- Unified item list (build items + shared items)
+	-- Controls (Search + Row-B + Row-A = 68 px) are placed ABOVE the list body.
+	-- itemList starts 88 px below setManage (non-portrait) to leave room for them.
 	if main.portraitMode then
-		self.controls.itemList = new("ItemListControl", {"TOPRIGHT",self.lastSlot,"BOTTOMRIGHT"}, {0, 0, 360, 308}, self, true)
+		self.controls.itemList = new("ItemListControl", {"TOPRIGHT",self.lastSlot,"BOTTOMRIGHT"}, {0, 68, 360, 308}, self, main.sharedItemList, true)
 	else
-		self.controls.itemList = new("ItemListControl", {"TOPLEFT",self.controls.setManage,"TOPRIGHT"}, {20, 20, 360, 308}, self, true)
+		self.controls.itemList = new("ItemListControl", {"TOPLEFT",self.controls.setManage,"TOPRIGHT"}, {20, 88, 360, 308}, self, main.sharedItemList, true)
+	end
+	self.controls.itemList.shown = function()
+		return self.displayItem == nil
 	end
 
-	-- Database selector
-	self.controls.selectDBLabel = new("LabelControl", {"TOPLEFT",self.controls.itemList,"BOTTOMLEFT"}, {0, 14, 0, 16}, "^7Import from:")
+	-- Database selector (y=-88 keeps label at setManage row: itemList starts 88 px below setManage)
+	self.controls.selectDBLabel = new("LabelControl", {"TOPLEFT",self.controls.itemList,"TOPRIGHT"}, {20, -88, 0, 16}, "^7Import from:")
 	self.controls.selectDBLabel.shown = function()
-		return self.height < 980
+		return self.height < 980 and self.displayItem == nil
 	end
 	self.selectedDB = "UNIQUE"
 
@@ -336,33 +358,51 @@ local ItemsTabClass = newClass("ItemsTab", "UndoHandler", "ControlHost", "Contro
 	    self.selectedDB = "UNIQUE"
 	end)
 	self.controls.uniqueButton.locked = function() return self.selectedDB == "UNIQUE" end
-	
+	self.controls.uniqueButton.shown = function() return self.displayItem == nil end
+
 	-- Rare Templates Button
 	self.controls.rareButton = new("ButtonControl", {"LEFT",self.controls.selectDBLabel,"RIGHT"}, {120, 0, 110, 18}, "Rare Templates", function()
 	    self.selectedDB = "RARE"
 	end)
 	self.controls.rareButton.locked = function() return self.selectedDB == "RARE" end
-	
-	-- Unique database
-	self.controls.uniqueDB = new("ItemDBControl", {"TOPLEFT",self.controls.itemList,"BOTTOMLEFT"}, {0, 76, 360, function(c) return m_min(244, self.maxY - select(2, c:GetPos())) end}, self, main.uniqueDB, "UNIQUE")
+	self.controls.rareButton.shown = function() return self.displayItem == nil end
+
+	-- Unique database (y=16 places "Any slot" at same Y as "Trade for these items"; height fills to "Passive tree:" row)
+	self.controls.uniqueDB = new("ItemDBControl", {"TOPLEFT",self.controls.itemList,"TOPRIGHT"}, {20, 0, 360, function(c)
+		if self.controls.selectDBLabel:IsShown() then
+			local _, myY = c:GetPos()
+			local _, specY = self.controls.specSelect:GetPos()
+			return m_max(100, specY + 20 - myY)
+		else
+			return m_min(244, self.maxY - select(2, c:GetPos()))
+		end
+	end}, self, main.uniqueDB, "UNIQUE")
 	self.controls.uniqueDB.y = function()
-		return self.controls.selectDBLabel:IsShown() and 118 or 90
+		return self.controls.selectDBLabel:IsShown() and 16 or 66
 	end
 	self.controls.uniqueDB.shown = function()
-		return not self.controls.selectDBLabel:IsShown() or self.selectedDB == "UNIQUE"
+		return self.displayItem == nil and (not self.controls.selectDBLabel:IsShown() or self.selectedDB == "UNIQUE")
 	end
-	
+
 	-- Rare template database
-	self.controls.rareDB = new("ItemDBControl", {"TOPLEFT",self.controls.itemList,"BOTTOMLEFT"}, {0, 76, 360, function(c) return m_min(284, self.maxY - select(2, c:GetPos())) end}, self, main.rareDB, "RARE")
+	self.controls.rareDB = new("ItemDBControl", {"TOPLEFT",self.controls.itemList,"TOPRIGHT"}, {20, 0, 360, function(c)
+		if self.controls.selectDBLabel:IsShown() then
+			local _, myY = c:GetPos()
+			local _, specY = self.controls.specSelect:GetPos()
+			return m_max(100, specY + 20 - myY)
+		else
+			return m_min(284, self.maxY - select(2, c:GetPos()))
+		end
+	end}, self, main.rareDB, "RARE")
 	self.controls.rareDB.y = function()
-		return self.controls.selectDBLabel:IsShown() and 78 or 386
+		return self.controls.selectDBLabel:IsShown() and -24 or 336
 	end
 	self.controls.rareDB.shown = function()
-		return not self.controls.selectDBLabel:IsShown() or self.selectedDB == "RARE"
+		return self.displayItem == nil and (not self.controls.selectDBLabel:IsShown() or self.selectedDB == "RARE")
 	end	
 
 	-- Create/import item
-	self.controls.craftDisplayItem = new("ButtonControl", {"TOPLEFT",main.portraitMode and self.controls.setManage or self.controls.itemList,"TOPRIGHT"}, {20, main.portraitMode and 0 or -20, 120, 20}, "Craft item...", function()
+	self.controls.craftDisplayItem = new("ButtonControl", {"TOPLEFT",self.controls.setManage,"TOPRIGHT"}, {20, 0, 120, 20}, "Craft item...", function()
 		self:CraftItem()
 	end)
 	self.controls.craftDisplayItem.shown = function()
@@ -371,25 +411,19 @@ local ItemsTabClass = newClass("ItemsTab", "UndoHandler", "ControlHost", "Contro
 	self.controls.newDisplayItem = new("ButtonControl", {"TOPLEFT",self.controls.craftDisplayItem,"TOPRIGHT"}, {8, 0, 120, 20}, "Create custom...", function()
 		self:EditDisplayItemText()
 	end)
-	self.controls.displayItemTip = new("LabelControl", {"TOPLEFT",self.controls.craftDisplayItem,"BOTTOMLEFT"}, {0, 8, 100, 16}, 
-[[^7Double-click an item from one of the lists,
-or copy and paste an item from in game
-(hover over the item and Ctrl+C) to view or edit
-the item and add it to your build. You can 
-also clone an item within Path of Building by 
-copying and pasting it with Ctrl+C and Ctrl+V.
-
-You can Control + Click an item to equip it, or 
-drag it onto the slot.  This will also add it to 
+	self.controls.newDisplayItem.tooltipText = "Double-click an item from one of the lists,\nor copy and paste an item from in game\n(hover over the item and Ctrl+C) to view or edit\nthe item and add it to your build. You can \nalso clone an item within Path of Building by \ncopying and pasting it with Ctrl+C and Ctrl+V."
+	self.controls.newDisplayItem.shown = function() return self.displayItem == nil end
+	self.controls.displayItemTip = new("LabelControl", {"TOPLEFT",self.controls.itemList,"BOTTOMLEFT"}, {0, 8, 100, 16},
+[[^7You can Control + Click an item to equip it, or
+drag it onto the slot.  This will also add it to
 your build if it's from the unique/template list.
-If there's 2 slots an item can go in, 
+If there's 2 slots an item can go in,
 holding Shift will put it in the second.]])
-	self.controls.sharedItemList = new("SharedItemListControl", {"TOPLEFT",self.controls.craftDisplayItem, "BOTTOMLEFT"}, {0, 232, 340, 308}, self, true)
-
+	self.controls.displayItemTip.shown = function() return self.displayItem == nil end
 	-- Display item
 	self.displayItemTooltip = new("Tooltip")
 	self.displayItemTooltip.maxWidth = 458
-	self.anchorDisplayItem = new("Control", {"TOPLEFT",main.portraitMode and self.controls.setManage or self.controls.itemList,"TOPRIGHT"}, {20, main.portraitMode and 0 or -20, 0, 0})
+	self.anchorDisplayItem = new("Control", {"TOPLEFT",self.controls.setManage,"TOPRIGHT"}, {20, 0, 0, 0})
 	self.anchorDisplayItem.shown = function()
 		return self.displayItem ~= nil
 	end
@@ -1017,21 +1051,15 @@ holding Shift will put it in the second.]])
 	self.controls.scrollBarV = new("ScrollBarControl", nil, {0, 0, 18, 0}, 100, "VERTICAL", true)
 
 	-- Initialise drag target lists
-	t_insert(self.controls.itemList.dragTargetList, self.controls.sharedItemList)
 	t_insert(self.controls.itemList.dragTargetList, build.controls.mainSkillMinion)
 	t_insert(self.controls.uniqueDB.dragTargetList, self.controls.itemList)
-	t_insert(self.controls.uniqueDB.dragTargetList, self.controls.sharedItemList)
 	t_insert(self.controls.uniqueDB.dragTargetList, build.controls.mainSkillMinion)
 	t_insert(self.controls.rareDB.dragTargetList, self.controls.itemList)
-	t_insert(self.controls.rareDB.dragTargetList, self.controls.sharedItemList)
 	t_insert(self.controls.rareDB.dragTargetList, build.controls.mainSkillMinion)
-	t_insert(self.controls.sharedItemList.dragTargetList, self.controls.itemList)
-	t_insert(self.controls.sharedItemList.dragTargetList, build.controls.mainSkillMinion)
 	for _, slot in pairs(self.slots) do
 		t_insert(self.controls.itemList.dragTargetList, slot)
 		t_insert(self.controls.uniqueDB.dragTargetList, slot)
 		t_insert(self.controls.rareDB.dragTargetList, slot)
-		t_insert(self.controls.sharedItemList.dragTargetList, slot)
 	end
 
 	-- Initialise item sets
@@ -1361,12 +1389,12 @@ function ItemsTabClass:Draw(viewPort, inputEvents)
 	self.slots["Weapon 2 Swap"]:Populate()
 	
 	if main.portraitMode then
-		self.controls.itemList:SetAnchor("TOPRIGHT", self.lastSlot, "BOTTOMRIGHT", 0, 40)
+		self.controls.itemList:SetAnchor("TOPRIGHT", self.lastSlot, "BOTTOMRIGHT", 0, 108)
 	else
-		self.controls.itemList:SetAnchor("TOPLEFT", self.controls.setManage, "TOPRIGHT", 20, 20)
+		self.controls.itemList:SetAnchor("TOPLEFT", self.controls.setManage, "TOPRIGHT", 20, 88)
 	end
-	self.controls.craftDisplayItem:SetAnchor("TOPLEFT", main.portraitMode and self.controls.setManage or self.controls.itemList, "TOPRIGHT", 20, main.portraitMode and 0 or -20)
-	self.anchorDisplayItem:SetAnchor("TOPLEFT", main.portraitMode and self.controls.setManage or self.controls.itemList, "TOPRIGHT", 20, main.portraitMode and 0)
+	self.controls.craftDisplayItem:SetAnchor("TOPLEFT", self.controls.setManage, "TOPRIGHT", 20, 0)
+	self.anchorDisplayItem:SetAnchor("TOPLEFT", self.controls.setManage, "TOPRIGHT", 20, 0)
 
 	self:DrawControls(viewPort)
 	if self.controls.scrollBarH:IsShown() then
@@ -1503,6 +1531,9 @@ end
 function ItemsTabClass:PopulateSlots()
 	for _, slot in pairs(self.slots) do
 		slot:Populate()
+	end
+	if self.controls.itemList then
+		self.controls.itemList:Populate()
 	end
 end
 
@@ -2272,6 +2303,25 @@ function ItemsTabClass:OpenItemSetManagePopup()
 		main:ClosePopup()
 	end)
 	main:OpenPopup(630, 290, "Manage Item Sets", controls)
+end
+
+-- Opens the item notes editor popup
+function ItemsTabClass:OpenItemNotesPopup(slot)
+	local item = self.items[slot.selItemId]
+	if not item then return end
+	local controls = { }
+	controls.label = new("LabelControl", nil, {0, 20, 0, 16}, "^7Notes for: " .. item.name)
+	controls.edit = new("EditControl", nil, {0, 60, 300, 80}, item.note or "", nil, nil, nil, nil, 14)
+	controls.save = new("ButtonControl", nil, {-55, 150, 90, 20}, "Save", function()
+		local text = controls.edit.buf
+		item.note = text ~= "" and text or nil
+		self.modFlag = true
+		main:ClosePopup()
+	end)
+	controls.cancel = new("ButtonControl", nil, {55, 150, 90, 20}, "Cancel", function()
+		main:ClosePopup()
+	end)
+	main:OpenPopup(340, 180, "Item Notes", controls, "save", "edit", "cancel")
 end
 
 -- Opens the item crafting popup

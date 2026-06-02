@@ -1331,6 +1331,9 @@ function ItemClass:BuildRaw()
 	if self.itemLevel then
 		t_insert(rawLines, "Item Level: " .. self.itemLevel)
 	end
+	if self.note and self.note ~= "" then
+		t_insert(rawLines, "Note: " .. self.note)
+	end
 	local function writeModLine(modLine)
 		local line = modLine.line
 		if modLine.range and line:match("%(%-?[%d%.]+%-%-?[%d%.]+%)") then
