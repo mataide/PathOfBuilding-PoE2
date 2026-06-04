@@ -30,7 +30,7 @@ local DropDownClass = newClass("DropDownControl", "Control", "ControlHost", "Too
 				return StripEscapes(listVal)
 			end
 	)
-	self.controls.scrollBar = new("ScrollBarControl", {"TOPRIGHT",self,"TOPRIGHT"}, {-1, 0, 18, 0}, (self.height - 4) * 4)
+	self.controls.scrollBar = new("ScrollBarControl", {"TOPRIGHT",self,"TOPRIGHT"}, {-1, 0, 18, 0}, (self:GetProperty("height") - 4) * 4)
 	self.controls.scrollBar.height = function()
 		return self.dropHeight + 2
 	end
@@ -42,9 +42,9 @@ local DropDownClass = newClass("DropDownControl", "Control", "ControlHost", "Too
 	self.selIndex = 1
 	self.selFunc = selFunc
 	-- Current value of the width of the dropped component
-	self.droppedWidth = self.width
+	self.droppedWidth = self:GetProperty("width")
 	-- Set by the parent control. The maximum width of the dropped component will go to.
-	self.maxDroppedWidth = m_max(self.width, 300)
+	self.maxDroppedWidth = m_max(self:GetProperty("width"), 300)
 	-- Set by the parent control. Activates the auto width of the dropped component.
 	self.enableDroppedWidth = false
 	-- Set by the parent control. Activates the auto width of the box component.
@@ -504,10 +504,10 @@ function DropDownClass:CheckDroppedWidth(enable)
 		if self.dropped and self.controls.scrollBar.enabled then
 			scrollWidth = self.controls.scrollBar.width
 		end
-		local lineHeight = self.height - 4
+		local lineHeight = self:GetProperty("height") - 4
 
 		  -- do not be smaller than the created width
-		local dWidth = self.width
+		local dWidth = self:GetProperty("width")
 		for _, line in ipairs(self.list) do
 			if type(line) == "table" then
 				line = line.label or ""
@@ -528,9 +528,9 @@ function DropDownClass:CheckDroppedWidth(enable)
 			self.width = m_max(m_min(boxWidth, 390), 190)
 		end
 		
-		self.controls.scrollBar.x = self.droppedWidth - self.width - 1
+		self.controls.scrollBar.x = self.droppedWidth - self:GetProperty("width") - 1
 	else
-		self.droppedWidth = self.width
+		self.droppedWidth = self:GetProperty("width")
 		self.controls.scrollBar.x = -1
 	end
 end
