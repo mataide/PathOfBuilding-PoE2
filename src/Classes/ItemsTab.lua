@@ -366,42 +366,42 @@ local ItemsTabClass = newClass("ItemsTab", "UndoHandler", "ControlHost", "Contro
 		self.controls.itemList = new("ItemListControl", {"TOPLEFT",self.controls.setManage,"TOPRIGHT"}, {32, 88, function() return getItemListW() end, 308}, self, main.sharedItemList, true)
 	end
 	self.controls.itemList.shown = function()
-		return self.displayItem == nil
+		return true
 	end
 
-	-- Database selector (y=-88 keeps label at setManage row: itemList starts 88 px below setManage)
-	self.controls.selectDBLabel = new("LabelControl", {"TOPLEFT",self.controls.itemList,"TOPRIGHT"}, {20, -88, 0, 16}, "^7Import from:")
+	-- Database selector (y=-40 aligns label with "Equipped items:" header; itemList starts 88px below setManage)
+	self.controls.selectDBLabel = new("LabelControl", {"TOPLEFT",self.controls.itemList,"TOPRIGHT"}, {20, -40, 0, 16}, "^7Import from:")
 	self.controls.selectDBLabel.shown = function()
 		return self.height < 980 and self.displayItem == nil
 	end
 	self.selectedDB = "UNIQUE"
 
 	-- Uniques Button
-	self.controls.uniqueButton = new("ButtonControl", {"LEFT",self.controls.selectDBLabel,"RIGHT"}, {4, 0, 110, 18}, "Uniques", function()
+	self.controls.uniqueButton = new("ButtonControl", {"LEFT",self.controls.selectDBLabel,"RIGHT"}, {4, 0, function() return m_floor((getItemListW()-10)/2) end, 18}, "Uniques", function()
 	    self.selectedDB = "UNIQUE"
 	end)
 	self.controls.uniqueButton.locked = function() return self.selectedDB == "UNIQUE" end
 	self.controls.uniqueButton.shown = function() return self.displayItem == nil end
 
 	-- Rare Templates Button
-	self.controls.rareButton = new("ButtonControl", {"LEFT",self.controls.selectDBLabel,"RIGHT"}, {120, 0, 110, 18}, "Rare Templates", function()
+	self.controls.rareButton = new("ButtonControl", {"LEFT",self.controls.uniqueButton,"RIGHT"}, {6, 0, function() return m_floor((getItemListW()-10)/2) end, 18}, "Rare Templates", function()
 	    self.selectedDB = "RARE"
 	end)
 	self.controls.rareButton.locked = function() return self.selectedDB == "RARE" end
 	self.controls.rareButton.shown = function() return self.displayItem == nil end
 
-	-- Unique database (y=16 places "Any slot" at same Y as "Trade for these items"; height fills to "Passive tree:" row)
+	-- Unique database (y=64 aligns top with "Import from:" row + its 18px buttons; height fills to "Passive tree:" row)
 	self.controls.uniqueDB = new("ItemDBControl", {"TOPLEFT",self.controls.itemList,"TOPRIGHT"}, {20, 0, function() return getItemListW() end, function(c)
 		if self.controls.selectDBLabel:IsShown() then
 			local _, myY = c:GetPos()
 			local _, specY = self.controls.specSelect:GetPos()
 			return m_max(100, specY + 20 - myY)
 		else
-			return m_min(244, self.maxY - select(2, c:GetPos()))
+			return self.uniqueDBH or 244
 		end
 	end}, self, main.uniqueDB, "UNIQUE")
 	self.controls.uniqueDB.y = function()
-		return self.controls.selectDBLabel:IsShown() and 16 or 66
+		return self.controls.selectDBLabel:IsShown() and 64 or 66
 	end
 	self.controls.uniqueDB.shown = function()
 		return self.displayItem == nil and (not self.controls.selectDBLabel:IsShown() or self.selectedDB == "UNIQUE")
@@ -414,29 +414,29 @@ local ItemsTabClass = newClass("ItemsTab", "UndoHandler", "ControlHost", "Contro
 			local _, specY = self.controls.specSelect:GetPos()
 			return m_max(100, specY + 20 - myY)
 		else
-			return m_min(284, self.maxY - select(2, c:GetPos()))
+			return m_max(100, self.maxY - select(2, c:GetPos()))
 		end
 	end}, self, main.rareDB, "RARE")
 	self.controls.rareDB.y = function()
-		return self.controls.selectDBLabel:IsShown() and -24 or 336
+		return self.controls.selectDBLabel:IsShown() and 24 or (self.rareDBY or 336)
 	end
 	self.controls.rareDB.shown = function()
 		return self.displayItem == nil and (not self.controls.selectDBLabel:IsShown() or self.selectedDB == "RARE")
 	end	
 
 	-- Create/import item section panel
-	self.controls.createItemSection = new("SectionControl", {"TOPLEFT",self.controls.setManage,"TOPRIGHT"}, {20, 0, 264, 36}, "Create Item")
+	self.controls.createItemSection = new("SectionControl", {"TOPLEFT",self.controls.itemList,"TOPRIGHT"}, {20, -88, function() return getItemListW() end, 44}, "Create Item")
 	self.controls.createItemSection.shown = function()
 		return self.displayItem == nil
 	end
 
-	self.controls.craftDisplayItem = new("ButtonControl", {"TOPLEFT",self.controls.createItemSection,"TOPLEFT"}, {8, 8, 120, 20}, "Craft item...", function()
+	self.controls.craftDisplayItem = new("ButtonControl", {"TOPLEFT",self.controls.createItemSection,"TOPLEFT"}, {8, 12, function() return m_floor((getItemListW()-16)/2) end, 20}, "Craft item...", function()
 		self:CraftItem()
 	end)
 	self.controls.craftDisplayItem.shown = function()
 		return self.displayItem == nil
 	end
-	self.controls.newDisplayItem = new("ButtonControl", {"TOPLEFT",self.controls.craftDisplayItem,"TOPRIGHT"}, {8, 0, 120, 20}, "Create custom...", function()
+	self.controls.newDisplayItem = new("ButtonControl", {"TOPLEFT",self.controls.craftDisplayItem,"TOPRIGHT"}, {8, 0, function() return m_floor((getItemListW()-16)/2) end, 20}, "Create custom...", function()
 		self:EditDisplayItemText()
 	end)
 	self.controls.newDisplayItem.tooltipText = "Double-click an item from one of the lists,\nor copy and paste an item from in game\n(hover over the item and Ctrl+C) to view or edit\nthe item and add it to your build. You can \nalso clone an item within Path of Building by \ncopying and pasting it with Ctrl+C and Ctrl+V."
@@ -1330,14 +1330,28 @@ function ItemsTabClass:Draw(viewPort, inputEvents)
 	self.controls.scrollBarV.height = viewPort.height - self.SCROLL_BAR_THICKNESS
 	self.controls.scrollBarV.x = viewPort.x + viewPort.width - self.SCROLL_BAR_THICKNESS
 	self.controls.scrollBarV.y = viewPort.y
+	-- Detect hovered equipment slot with notes
+	local hoveredSlotNotesText = ""
+	for _, slot in ipairs(self.orderedSlots) do
+		if not slot.nodeId and slot:IsShown() and slot:IsMouseInBounds() then
+			local slotData = self.activeItemSet and self.activeItemSet[slot.slotName]
+			if slotData and slotData.notes and slotData.notes:match("%S") then
+				hoveredSlotNotesText = slotData.notes
+			end
+			break
+		end
+	end
+	self.hoveredSlotNotesText = hoveredSlotNotesText
 	do
-		local maxY = select(2, self.lastSlot:GetPos()) + 24
-		local maxX = self.anchorDisplayItem:GetPos() + 32 + 2 * self.getItemListW()
+		self.displayItemTooltip.maxWidth = self.getDisplayZoneW()
+		local notesBoxH = (self.hoveredSlotNotesText ~= "") and 64 or 0
+		local maxY = select(2, self.lastSlot:GetPos()) + 24 + notesBoxH
+		local maxX = self.anchorDisplayItem:GetPos() + self.getDisplayZoneW()
 		if self.displayItem then
 			local x, y = self.controls.displayItemTooltipAnchor:GetPos()
 			local ttW, ttH = self.displayItemTooltip:GetDynamicSize(viewPort)
 			maxY = m_max(maxY, y + ttH + 4)
-			maxX = m_max(maxX, x + ttW + 80)
+			maxX = m_max(maxX, x + ttW)
 		end
 		local contentHeight = maxY - self.y
 		local contentWidth = maxX - self.x
@@ -1355,6 +1369,11 @@ function ItemsTabClass:Draw(viewPort, inputEvents)
 		end
 		self.snapHScroll = nil
 		self.maxY = h and self.controls.scrollBarH.y or viewPort.y + viewPort.height
+		if not self.controls.selectDBLabel:IsShown() then
+			local listSpace = self.maxY - 66 - 26
+			self.uniqueDBH = m_max(100, m_floor(listSpace / 2))
+			self.rareDBY   = 66 + self.uniqueDBH + 26
+		end
 	end
 	self.x = self.x - self.controls.scrollBarH.offset
 	self.y = self.y - self.controls.scrollBarV.offset
@@ -1438,12 +1457,14 @@ function ItemsTabClass:Draw(viewPort, inputEvents)
 	
 	if main.portraitMode then
 		self.controls.itemList:SetAnchor("TOPRIGHT", self.lastSlot, "BOTTOMRIGHT", 0, 108)
+		self.controls.createItemSection:SetAnchor("TOPLEFT", self.controls.setManage, "TOPRIGHT", 20, 0)
+		self.anchorDisplayItem:SetAnchor("TOPLEFT", self.controls.setManage, "TOPRIGHT", 20, 0)
 	else
 		self.controls.itemList:SetAnchor("TOPLEFT", self.controls.setManage, "TOPRIGHT", 32, 88)
+		self.controls.createItemSection:SetAnchor("TOPLEFT", self.controls.itemList, "TOPRIGHT", 20, -88)
+		self.anchorDisplayItem:SetAnchor("TOPLEFT", self.controls.itemList, "TOPRIGHT", 20, -88)
 	end
-	self.controls.createItemSection:SetAnchor("TOPLEFT", self.controls.setManage, "TOPRIGHT", 20, 0)
-	self.controls.craftDisplayItem:SetAnchor("TOPLEFT", self.controls.createItemSection, "TOPLEFT", 8, 8)
-	self.anchorDisplayItem:SetAnchor("TOPLEFT", self.controls.setManage, "TOPRIGHT", 20, 0)
+	self.controls.craftDisplayItem:SetAnchor("TOPLEFT", self.controls.createItemSection, "TOPLEFT", 8, 12)
 
 	self:DrawControls(viewPort)
 	if self.controls.scrollBarH:IsShown() then
@@ -1451,6 +1472,27 @@ function ItemsTabClass:Draw(viewPort, inputEvents)
 	end
 	if self.controls.scrollBarV:IsShown() then
 		self.controls.scrollBarV:Draw(viewPort)
+	end
+
+	-- Draw hover notes box below the equipment zone
+	if self.hoveredSlotNotesText ~= "" then
+		local bottomControl = self.lastSlot.nodeId and self.lastSlot or self.controls.specSelect
+		local noteX, bottomY = bottomControl:GetPos()
+		local _, bottomH = bottomControl:GetSize()
+		local noteY = bottomY + bottomH + 4
+		local noteW = self.getEquipZoneW()
+		local noteH = 60
+		SetDrawColor(0.5, 0.5, 0.5)
+		DrawImage(nil, noteX, noteY, noteW, noteH)
+		SetDrawColor(0, 0, 0)
+		DrawImage(nil, noteX + 1, noteY + 1, noteW - 2, noteH - 2)
+		local lineH = 14
+		local ty = noteY + 4
+		for line in (self.hoveredSlotNotesText .. "\n"):gmatch("([^\n]*)\n") do
+			if ty + lineH > noteY + noteH - 2 then break end
+			DrawString(noteX + 4, ty, "LEFT", lineH, "VAR", "^7" .. line)
+			ty = ty + lineH
+		end
 	end
 
 	self.controls.specSelect:SetList(self.build.treeTab:GetSpecList())

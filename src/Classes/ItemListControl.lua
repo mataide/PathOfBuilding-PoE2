@@ -20,10 +20,8 @@ local ItemListClass = newClass("ItemListControl", "ListControl", function(self, 
 	local listControl = self
 
 	-- Search row (2 px above list body)
-	self.controls.searchLabel = new("LabelControl",
-		{"BOTTOMLEFT", self, "TOPLEFT"}, {0, -2, 40, 18}, "Find:")
 	self.controls.search = new("EditControl",
-		{"TOPLEFT", self.controls.searchLabel, "TOPRIGHT"}, {4, 0, 0, 18},
+		{"BOTTOMLEFT", self, "TOPLEFT"}, {0, -2, 0, 20},
 		"", "Search", "%c", 100,
 		function(buf)
 			self.searchText = buf
@@ -32,11 +30,11 @@ local ItemListClass = newClass("ItemListControl", "ListControl", function(self, 
 		nil, nil, true)
 	self.controls.search.width = function()
 		local w = listControl:GetSize()
-		return w - 44
+		return w
 	end
 
 	-- Row B: transfer buttons (4 px above search)
-	self.controls.shareItem = new("ButtonControl", {"BOTTOMLEFT",self.controls.searchLabel,"TOPLEFT"}, {0, -4, 0, 18}, "-> Shared", function()
+	self.controls.shareItem = new("ButtonControl", {"BOTTOMLEFT",self.controls.search,"TOPLEFT"}, {0, -4, 0, 18}, "-> Shared", function()
 		local entry = self.selValue
 		if not entry or entry.kind ~= "BUILD" then return end
 		local item = itemsTab.items[entry.id]
