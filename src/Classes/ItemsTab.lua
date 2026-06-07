@@ -358,13 +358,14 @@ local ItemsTabClass = newClass("ItemsTab", "UndoHandler", "ControlHost", "Contro
 	self.controls.weaponSwapLabel = new("LabelControl", {"RIGHT",self.controls.weaponSwap1,"LEFT"}, {-4, 0, 0, 14}, "^7Weapon Set:")
 
 	-- Unified item list (build items + shared items)
-	-- Controls (Search + Row-B + Row-A = 68 px) are placed ABOVE the list body.
+	-- Controls (Search + Row-B + Row-A = 70 px) are placed ABOVE the list body.
 	-- itemList starts 88 px below setManage (non-portrait) to leave room for them.
 	if main.portraitMode then
-		self.controls.itemList = new("ItemListControl", {"TOPRIGHT",self.lastSlot,"BOTTOMRIGHT"}, {0, 68, function() return getItemListW() end, 308}, self, main.sharedItemList, true)
+		self.controls.itemList = new("ItemListControl", {"TOPRIGHT",self.lastSlot,"BOTTOMRIGHT"}, {0, 68, function() return getItemListW() end, function(c) return m_max(100, self.maxY - select(2, c:GetPos()) - 8 - (self.displayItem == nil and 150 or 0)) end}, self, main.sharedItemList, true)
 	else
-		self.controls.itemList = new("ItemListControl", {"TOPLEFT",self.controls.setManage,"TOPRIGHT"}, {32, 88, function() return getItemListW() end, 308}, self, main.sharedItemList, true)
+		self.controls.itemList = new("ItemListControl", {"TOPLEFT",self.controls.setManage,"TOPRIGHT"}, {32, 88, function() return getItemListW() end, function(c) return m_max(100, self.maxY - select(2, c:GetPos()) - 8 - (self.displayItem == nil and 150 or 0)) end}, self, main.sharedItemList, true)
 	end
+	self.controls.itemList.tooltip.preferLeft = true
 	self.controls.itemList.shown = function()
 		return true
 	end
@@ -377,25 +378,46 @@ local ItemsTabClass = newClass("ItemsTab", "UndoHandler", "ControlHost", "Contro
 	self.selectedDB = "UNIQUE"
 
 	-- Uniques Button
-	self.controls.uniqueButton = new("ButtonControl", {"LEFT",self.controls.selectDBLabel,"RIGHT"}, {4, 0, function() return m_floor((getItemListW()-10)/2) end, 18}, "Uniques", function()
+	self.controls.uniqueButton = new("ButtonControl", {"TOPLEFT",self.controls.itemList,"TOPRIGHT"}, {20, -40, function()
+		if self.controls.selectDBLabel:IsShown() then
+			local labelW = select(1, self.controls.selectDBLabel:GetSize())
+			return m_floor((getItemListW() - labelW - 10) / 2)
+		else
+			return m_floor((getItemListW() - 6) / 2)
+		end
+	end, 18}, "Uniques", function()
 	    self.selectedDB = "UNIQUE"
 	end)
+	self.controls.uniqueButton.x = function()
+		if self.controls.selectDBLabel:IsShown() then
+			return 20 + select(1, self.controls.selectDBLabel:GetSize()) + 4
+		else
+			return 20
+		end
+	end
 	self.controls.uniqueButton.locked = function() return self.selectedDB == "UNIQUE" end
 	self.controls.uniqueButton.shown = function() return self.displayItem == nil end
 
 	-- Rare Templates Button
-	self.controls.rareButton = new("ButtonControl", {"LEFT",self.controls.uniqueButton,"RIGHT"}, {6, 0, function() return m_floor((getItemListW()-10)/2) end, 18}, "Rare Templates", function()
+	self.controls.rareButton = new("ButtonControl", {"LEFT",self.controls.uniqueButton,"RIGHT"}, {6, 0, function()
+		if self.controls.selectDBLabel:IsShown() then
+			local labelW = select(1, self.controls.selectDBLabel:GetSize())
+			local available = getItemListW() - labelW - 10
+			return available - m_floor(available / 2)
+		else
+			local available = getItemListW() - 6
+			return available - m_floor(available / 2)
+		end
+	end, 18}, "Rare Templates", function()
 	    self.selectedDB = "RARE"
 	end)
 	self.controls.rareButton.locked = function() return self.selectedDB == "RARE" end
 	self.controls.rareButton.shown = function() return self.displayItem == nil end
 
-	-- Unique database (y=64 aligns top with "Import from:" row + its 18px buttons; height fills to "Passive tree:" row)
+	-- Unique database (y=64 gives breathing room below the Import-from label and tab buttons at y=-40; height fills to bottom of viewport)
 	self.controls.uniqueDB = new("ItemDBControl", {"TOPLEFT",self.controls.itemList,"TOPRIGHT"}, {20, 0, function() return getItemListW() end, function(c)
 		if self.controls.selectDBLabel:IsShown() then
-			local _, myY = c:GetPos()
-			local _, specY = self.controls.specSelect:GetPos()
-			return m_max(100, specY + 20 - myY)
+			return m_max(100, self.maxY - select(2, c:GetPos()) - 8)
 		else
 			return self.uniqueDBH or 244
 		end
@@ -409,13 +431,7 @@ local ItemsTabClass = newClass("ItemsTab", "UndoHandler", "ControlHost", "Contro
 
 	-- Rare template database
 	self.controls.rareDB = new("ItemDBControl", {"TOPLEFT",self.controls.itemList,"TOPRIGHT"}, {20, 0, function() return getItemListW() end, function(c)
-		if self.controls.selectDBLabel:IsShown() then
-			local _, myY = c:GetPos()
-			local _, specY = self.controls.specSelect:GetPos()
-			return m_max(100, specY + 20 - myY)
-		else
-			return m_max(100, self.maxY - select(2, c:GetPos()))
-		end
+		return m_max(100, self.maxY - select(2, c:GetPos()) - 8)
 	end}, self, main.rareDB, "RARE")
 	self.controls.rareDB.y = function()
 		return self.controls.selectDBLabel:IsShown() and 24 or (self.rareDBY or 336)
@@ -430,13 +446,13 @@ local ItemsTabClass = newClass("ItemsTab", "UndoHandler", "ControlHost", "Contro
 		return self.displayItem == nil
 	end
 
-	self.controls.craftDisplayItem = new("ButtonControl", {"TOPLEFT",self.controls.createItemSection,"TOPLEFT"}, {8, 12, function() return m_floor((getItemListW()-16)/2) end, 20}, "Craft item...", function()
+	self.controls.craftDisplayItem = new("ButtonControl", {"TOPLEFT",self.controls.createItemSection,"TOPLEFT"}, {8, 12, function() return m_floor((getItemListW()-24)/2) end, 20}, "Craft item...", function()
 		self:CraftItem()
 	end)
 	self.controls.craftDisplayItem.shown = function()
 		return self.displayItem == nil
 	end
-	self.controls.newDisplayItem = new("ButtonControl", {"TOPLEFT",self.controls.craftDisplayItem,"TOPRIGHT"}, {8, 0, function() return m_floor((getItemListW()-16)/2) end, 20}, "Create custom...", function()
+	self.controls.newDisplayItem = new("ButtonControl", {"TOPLEFT",self.controls.craftDisplayItem,"TOPRIGHT"}, {8, 0, function() return m_floor((getItemListW()-24)/2) end, 20}, "Create custom...", function()
 		self:EditDisplayItemText()
 	end)
 	self.controls.newDisplayItem.tooltipText = "Double-click an item from one of the lists,\nor copy and paste an item from in game\n(hover over the item and Ctrl+C) to view or edit\nthe item and add it to your build. You can \nalso clone an item within Path of Building by \ncopying and pasting it with Ctrl+C and Ctrl+V."
@@ -748,7 +764,7 @@ local ItemsTabClass = newClass("ItemsTab", "UndoHandler", "ControlHost", "Contro
 	for i = 1, 6 do
 		local prev = self.controls["displayItemRune"..(i-1)] or self.controls.displayItemSectionRune
 		local drop
-		drop = new("DropDownControl", {"TOPLEFT",prev,"TOPLEFT"}, {i==1 and 40 or 0, 0, function() return getDisplayZoneW() end, 20}, nil, function(index, value)
+		drop = new("DropDownControl", {"TOPLEFT",prev,"TOPLEFT"}, {i==1 and 40 or 0, 0, function() return getDisplayZoneW() - 40 end, 20}, nil, function(index, value)
 			self.displayItem.runes[i] = value.name
 			self.displayItem:UpdateRunes()
 			self.displayItem:BuildAndParseRaw()
@@ -839,7 +855,7 @@ local ItemsTabClass = newClass("ItemsTab", "UndoHandler", "ControlHost", "Contro
 			end
 			return range
 		end
-		drop = new("DropDownControl", {"TOPLEFT",prev,"TOPLEFT"}, {i==1 and 40 or 0, 0, function() return getDisplayZoneW() end, 20}, nil, function(index, value)
+		drop = new("DropDownControl", {"TOPLEFT",prev,"TOPLEFT"}, {i==1 and 40 or 0, 0, function() return getDisplayZoneW() - 40 end, 20}, nil, function(index, value)
 			local affix = { modId = "None" }
 			if value.modId then
 				affix.modId = value.modId
@@ -1370,7 +1386,7 @@ function ItemsTabClass:Draw(viewPort, inputEvents)
 		self.snapHScroll = nil
 		self.maxY = h and self.controls.scrollBarH.y or viewPort.y + viewPort.height
 		if not self.controls.selectDBLabel:IsShown() then
-			local listSpace = self.maxY - 66 - 26
+			local listSpace = self.maxY - 66 - 26 - 8
 			self.uniqueDBH = m_max(100, m_floor(listSpace / 2))
 			self.rareDBY   = 66 + self.uniqueDBH + 26
 		end

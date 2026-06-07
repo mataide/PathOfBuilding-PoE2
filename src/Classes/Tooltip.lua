@@ -430,11 +430,19 @@ function TooltipClass:Draw(x, y, w, h, viewPort)
 	local ttY = y
 	local isHoverToolTip = w and h -- `w` and `h` typically only provided for hover tooltips
 	if isHoverToolTip then
-		ttX = ttX + w + 5
-		if ttX + ttW > viewPort.x + viewPort.width then
-			ttX = m_max(viewPort.x, x - 5 - ttW)
-			if ttX + ttW > x then
+		if self.preferLeft then
+			ttX = x - 5 - ttW
+			if ttX < viewPort.x then
+				ttX = viewPort.x
 				ttY = ttY + h
+			end
+		else
+			ttX = ttX + w + 5
+			if ttX + ttW > viewPort.x + viewPort.width then
+				ttX = m_max(viewPort.x, x - 5 - ttW)
+				if ttX + ttW > x then
+					ttY = ttY + h
+				end
 			end
 		end
 		if ttY + ttH > viewPort.y + viewPort.height then

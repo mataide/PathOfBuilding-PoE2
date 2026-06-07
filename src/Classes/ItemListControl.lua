@@ -34,7 +34,7 @@ local ItemListClass = newClass("ItemListControl", "ListControl", function(self, 
 	end
 
 	-- Row B: transfer buttons (4 px above search)
-	self.controls.shareItem = new("ButtonControl", {"BOTTOMLEFT",self.controls.search,"TOPLEFT"}, {0, -4, 0, 18}, "-> Shared", function()
+	self.controls.shareItem = new("ButtonControl", {"BOTTOMLEFT",self.controls.search,"TOPLEFT"}, {0, -4, 0, 20}, "-> Shared", function()
 		local entry = self.selValue
 		if not entry or entry.kind ~= "BUILD" then return end
 		local item = itemsTab.items[entry.id]
@@ -53,7 +53,7 @@ local ItemListClass = newClass("ItemListControl", "ListControl", function(self, 
 		return math.floor((listControl:GetSize() - 4) / 2)
 	end
 
-	self.controls.moveToItem = new("ButtonControl", {"LEFT",self.controls.shareItem,"RIGHT"}, {4, 0, 0, 18}, "<- Build", function()
+	self.controls.moveToItem = new("ButtonControl", {"LEFT",self.controls.shareItem,"RIGHT"}, {4, 0, 0, 20}, "<- Build", function()
 		local entry = self.selValue
 		if not entry or entry.kind ~= "SHARED" then return end
 		local copy = new("Item", entry.item:BuildRaw())
